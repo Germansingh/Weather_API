@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Dashboard</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+<div class="sky-background" aria-hidden="true">
+    <div class="sun"></div>
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-2"></div>
+    <div class="cloud cloud-3"></div>
+    <div class="rain-layer">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="snow-layer">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+</div>
+
+<div class="container">
+
+    <div class="header-row">
+        <h1>🌤 Weather Dashboard</h1>
+        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle theme">🌙</button>
+    </div>
+
+    <div id="statusMessage" class="status-message" role="status" aria-live="polite"></div>
+
+    <!-- 🔍 SEARCH WRAPPER (UPDATED) -->
+    <div class="search-wrapper">
+
+        <div class="top-bar">
+
+            <input type="text" id="city" placeholder="Search city...">
+
+            <button id="searchBtn">🔍</button>
+
+            <button id="locationBtn">📍 My Location</button>
+
+        </div>
+
+        <!-- 🌟 Recent Searches Dropdown -->
+        <ul id="recentSearches" class="recent-list"></ul>
+
+    </div>
+
+    <!-- ⏳ LOADER -->
+    <div id="loader" class="loader" style="display:none;"></div>
+
+    <!-- 🌦 MAIN WEATHER -->
+    <div class="main-weather">
+
+        <div id="locationBadge" class="location-badge hidden">📍 Current Location</div>
+
+        <img id="weatherIcon">
+
+        <h2 id="cityName">City Name</h2>
+
+        <p id="country">Country</p>
+
+        <h1 id="temperature">--°C</h1>
+
+        <p id="description">Weather Description</p>
+
+        <div class="sunset-visual">
+            <div class="sun-track">
+                <div id="sunMarker" class="sun-marker">☀️</div>
+            </div>
+            <div class="sun-times">
+                <span id="sunriseLabel">--:--</span>
+                <span id="sunsetLabel">--:--</span>
+            </div>
+        </div>
+
+        <p id="date"></p>
+
+        <p id="time"></p>
+
+    </div>
+
+    <!-- 📦 WEATHER DETAILS -->
+    <div class="details">
+
+        <div class="box">
+            🌡
+            <h3 id="feelsLike">--°C</h3>
+            <p>Feels Like</p>
+        </div>
+
+        <div class="box">
+            🥶
+            <h3 id="minTemp">--°C</h3>
+            <p>Min Temp</p>
+        </div>
+
+        <div class="box">
+            🔥
+            <h3 id="maxTemp">--°C</h3>
+            <p>Max Temp</p>
+        </div>
+
+        <div class="box">
+            💧
+            <h3 id="humidity">--%</h3>
+            <p>Humidity</p>
+        </div>
+
+        <div class="box">
+            💨
+            <h3 id="wind">-- m/s</h3>
+            <p>Wind Speed</p>
+        </div>
+
+        <div class="box">
+            🧭
+            <h3 id="windDirection">--°</h3>
+            <p>Wind Direction</p>
+        </div>
+
+        <div class="box">
+            👁
+            <h3 id="visibility">-- km</h3>
+            <p>Visibility</p>
+        </div>
+
+        <div class="box">
+            📈
+            <h3 id="pressure">-- hPa</h3>
+            <p>Pressure</p>
+        </div>
+
+        <div class="box">
+            ☁
+            <h3 id="clouds">--%</h3>
+            <p>Clouds</p>
+        </div>
+
+        <div class="box">
+            🌅
+            <h3 id="sunrise">--:--</h3>
+            <p>Sunrise</p>
+        </div>
+
+        <div class="box">
+            🌇
+            <h3 id="sunset">--:--</h3>
+            <p>Sunset</p>
+        </div>
+
+        <div class="box">
+            🔄
+            <h3 id="updated">--</h3>
+            <p>Last Updated</p>
+        </div>
+
+    </div>
+
+    <!-- (optional fallback list if you still want visible list below) -->
+    <ul id="recentSearchesBottom"></ul>
+
+    <!-- 📅 FORECAST -->
+    <div class="forecast">
+
+        <h2>📅 5-Day Forecast</h2>
+
+        <div id="forecastContainer"></div>
+
+    </div>
+
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
