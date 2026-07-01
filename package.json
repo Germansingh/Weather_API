@@ -2,9 +2,9 @@
   "name": "weather_api",
   "version": "1.0.0",
   "type": "module",
-  "main": "server.js",
+  "main": "Backend/server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node Backend/server.js"
   },
   "dependencies": {
     "axios": "^1.7.7",
