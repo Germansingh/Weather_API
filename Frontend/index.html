@@ -34,21 +34,24 @@
 
     <div id="statusMessage" class="status-message" role="status" aria-live="polite"></div>
 
-    <!-- 🔍 SEARCH WRAPPER (UPDATED) -->
+    <!-- 🔍 SEARCH WRAPPER -->
     <div class="search-wrapper">
 
         <div class="top-bar">
 
-            <input type="text" id="city" placeholder="Search city...">
+            <div class="search-input-shell">
+                <input type="text" id="city" placeholder="Search city..." autocomplete="off" spellcheck="false" aria-autocomplete="list" aria-controls="citySuggestions" aria-expanded="false">
+                <div id="citySuggestions" class="suggestions-dropdown" role="listbox" aria-label="City suggestions"></div>
+            </div>
 
-            <button id="searchBtn">🔍</button>
+            <button id="searchBtn" type="button">🔍</button>
 
-            <button id="locationBtn">📍 My Location</button>
+            <button id="locationBtn" type="button">📍 My Location</button>
 
         </div>
 
         <!-- 🌟 Recent Searches Dropdown -->
-        <ul id="recentSearches" class="recent-list"></ul>
+        <ul id="recentSearches" class="recent-list" aria-label="Recent searches"></ul>
 
     </div>
 
@@ -162,6 +165,33 @@
         </div>
 
     </div>
+
+    <div class="insights-grid">
+        <section class="panel">
+            <div class="section-heading">
+                <h2>🕒 Hourly Forecast</h2>
+                <span>Next 8 hours</span>
+            </div>
+            <div id="hourlyForecast" class="hourly-forecast"></div>
+        </section>
+
+        <section class="panel assistant-panel">
+            <div class="section-heading">
+                <h2>✅ AI Weather Assistant</h2>
+                <span>Smart tips</span>
+            </div>
+            <div id="assistantMessage" class="assistant-message"></div>
+            <div id="assistantTips" class="assistant-tips"></div>
+        </section>
+    </div>
+
+    <section class="panel travel-panel">
+        <div class="section-heading">
+            <h2>🧳 Travel Recommendation</h2>
+            <span>Best plan for today</span>
+        </div>
+        <div id="travelRecommendation" class="travel-recommendation"></div>
+    </section>
 
     <!-- (optional fallback list if you still want visible list below) -->
     <ul id="recentSearchesBottom"></ul>

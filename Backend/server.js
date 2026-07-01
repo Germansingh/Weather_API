@@ -24,6 +24,40 @@ app.get("/config.js", (req, res) => {
     res.send(`window.__WEATHER_API_URL__ = ${JSON.stringify(apiBase)};`);
 });
 
+app.get("/suggestions", async (req, res) => {
+    try {
+        const query = req.query.query?.trim();
+
+        if (!query) {
+            return res.json({ suggestions: [] });
+        }
+
+        const geocodeResponse = await axios.get("https://geocoding-api.open-meteo.com/v1/search", {
+            params: {
+                name: query,
+                count: 5,
+                language: "en",
+                format: "json"
+            }
+        });
+
+        const suggestions = (geocodeResponse.data.results || []).map((location) => ({
+            name: location.name,
+            state: location.admin1 || "",
+            country: location.country_code || location.country || "",
+            countryName: location.country || "",
+            displayName: [location.name, location.admin1].filter(Boolean).join(", ")
+        }));
+
+        res.json({ suggestions });
+    } catch (error) {
+        res.status(500).json({
+            error: "Failed to fetch city suggestions",
+            details: error.message
+        });
+    }
+});
+
 app.use(express.static(frontendPath));
 
 app.get("/", (req, res) => {
@@ -69,39 +103,57 @@ app.get("/weather", async (req, res) => {
                     "is_day"
                 ],
                 daily: ["weather_code", "temperature_2m_max", "temperature_2m_min", "sunrise", "sunset"],
+                hourly: [
+                    "temperature_2m",
+                    "weather_code",
+                    "precipitation_probability",
+                    "wind_speed_10m"
+                ],
                 timezone: "auto",
-                forecast_days: 5
+                forecast_days: 5,
+                current_weather: true
             }
         });
 
-        const current = forecastResponse.data.current;
-        const daily = forecastResponse.data.daily;
-        const weatherCode = current.weather_code;
+        const currentWeather = forecastResponse.data.current_weather || {};
+        const current = forecastResponse.data.current || {};
+        const daily = forecastResponse.data.daily || {};
+        const hourly = forecastResponse.data.hourly || {};
+        const weatherCode = currentWeather.weathercode ?? current.weather_code;
         const description = getWeatherDescription(weatherCode);
+
+        const hourlyForecast = (hourly.time || []).slice(0, 8).map((time, index) => ({
+            time,
+            temperature: Math.round(hourly.temperature_2m?.[index]),
+            description: getWeatherDescription(hourly.weather_code?.[index]),
+            precipitationProbability: hourly.precipitation_probability?.[index] ?? 0,
+            windSpeed: hourly.wind_speed_10m?.[index] ?? 0
+        }));
 
         const data = {
             city: location.name,
             country: location.country,
-            temperature: Math.round(current.temperature_2m),
-            feels_like: Math.round(current.apparent_temperature),
+            temperature: Math.round(currentWeather.temperature ?? current.temperature_2m),
+            feels_like: Math.round(current.apparent_temperature ?? currentWeather.temperature),
             humidity: current.relative_humidity_2m,
             weather: description,
             description,
-            icon: getWeatherIcon(weatherCode, current.is_day),
-            wind: current.wind_speed_10m,
-            windDirection: current.wind_direction_10m,
+            icon: getWeatherIcon(weatherCode, currentWeather.is_day ?? current.is_day),
+            wind: current.wind_speed_10m ?? currentWeather.windspeed,
+            windDirection: current.wind_direction_10m ?? currentWeather.winddirection,
             pressure: current.pressure_msl,
             clouds: current.cloud_cover,
             sunrise: daily.sunrise?.[0],
             sunset: daily.sunset?.[0],
             minTemp: Math.round(daily.temperature_2m_min?.[0]),
             maxTemp: Math.round(daily.temperature_2m_max?.[0]),
-            forecast: daily.time.slice(0, 5).map((date, index) => ({
+            forecast: (daily.time || []).slice(0, 5).map((date, index) => ({
                 date,
                 minTemp: Math.round(daily.temperature_2m_min[index]),
                 maxTemp: Math.round(daily.temperature_2m_max[index]),
                 description: getWeatherDescription(daily.weather_code[index])
-            }))
+            })),
+            hourlyForecast
         };
 
         res.json(data);
