@@ -49,6 +49,12 @@ window.addEventListener("DOMContentLoaded", () => {
     getWeather("London");
 });
 
+function getApiUrl(pathname) {
+    const configuredBase = window.__WEATHER_API_URL__?.trim();
+    const base = configuredBase || window.location.origin;
+    return new URL(pathname.replace(/^\//, ""), base.endsWith("/") ? base : `${base}/`).toString();
+}
+
 async function getWeather(city) {
     if (!city) return;
 
@@ -56,9 +62,10 @@ async function getWeather(city) {
     showLoader(true);
 
     try {
-        const API_URL = window.location.origin;
+        const weatherUrl = new URL(getApiUrl("/weather"));
+        weatherUrl.searchParams.set("city", city);
 
-        const response = await fetch(`${API_URL}/weather?city=${encodeURIComponent(city)}`);
+        const response = await fetch(weatherUrl.toString());
         const data = await response.json();
 
         if (!response.ok) {

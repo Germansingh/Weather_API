@@ -18,6 +18,12 @@ const PORT = process.env.PORT || 5000;
 
 const frontendPath = path.join(__dirname, "..", "Frontend");
 
+app.get("/config.js", (req, res) => {
+    const apiBase = process.env.API_BASE_URL || "";
+    res.type("application/javascript");
+    res.send(`window.__WEATHER_API_URL__ = ${JSON.stringify(apiBase)};`);
+});
+
 app.use(express.static(frontendPath));
 
 app.get("/", (req, res) => {
