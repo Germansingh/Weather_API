@@ -16,10 +16,10 @@ const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 5000;
 
-app.use(express.static(path.join(__dirname, "Frontend")));
+app.use(express.static(path.join(__dirname, "../Frontend")));
 
 app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "Frontend", "index.html"));
+    res.sendFile(path.join(__dirname, "../Frontend", "index.html"));
 });
 
 app.get("/weather", async (req, res) => {
