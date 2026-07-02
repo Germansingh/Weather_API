@@ -195,6 +195,14 @@ body.weather-stormy .sun { box-shadow: 0 0 70px rgba(255, 213, 79, 0.6); }
     font-size: clamp(1.3rem, 2.2vw, 1.6rem);
 }
 
+.tagline {
+    margin-top: 6px;
+    font-size: 0.95rem;
+    opacity: 0.78;
+    max-width: 680px;
+    line-height: 1.5;
+}
+
 .theme-toggle {
     width: 44px;
     height: 44px;
@@ -683,12 +691,201 @@ button:hover {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.14));
 }
 
+.chat-panel {
+    padding: 22px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    margin-top: 22px;
+}
+
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+}
+
+.chat-header h2 {
+    font-size: 1rem;
+}
+
+.chat-header span {
+    display: block;
+    font-size: 0.87rem;
+    opacity: 0.8;
+    max-width: 520px;
+}
+
+.chat-examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-top: 4px;
+}
+
+.example-chip {
+    border: 1px solid rgba(255,255,255,0.16);
+    background: rgba(255,255,255,0.08);
+    color: inherit;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 0.84rem;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.example-chip:hover {
+    transform: translateY(-1px);
+    background: rgba(255,255,255,0.18);
+}
+
+.chat-history {
+    min-height: 220px;
+    max-height: 380px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-right: 4px;
+}
+
+.chat-message {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    align-items: flex-end;
+}
+
+.chat-message.assistant {
+    justify-content: flex-start;
+}
+
+.chat-message.user {
+    justify-content: flex-end;
+}
+
+.chat-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.18);
+    flex-shrink: 0;
+    font-size: 1.05rem;
+}
+
+.chat-bubble {
+    max-width: 78%;
+    padding: 14px 16px;
+    border-radius: 22px;
+    line-height: 1.6;
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
+    white-space: pre-wrap;
+}
+
+.chat-bubble.assistant {
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.chat-bubble.user {
+    background: rgba(0, 120, 255, 0.95);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.chat-bubble ul {
+    margin-top: 8px;
+    margin-bottom: 0;
+    padding-left: 18px;
+}
+
+.chat-bubble li {
+    margin-bottom: 6px;
+}
+
+.chat-meta {
+    font-size: 0.72rem;
+    opacity: 0.75;
+    align-self: flex-end;
+    min-width: 40px;
+    text-align: right;
+}
+
+.typing-indicator {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.typing-indicator span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.75);
+    opacity: 0.6;
+    animation: typingPulse 1.1s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typingPulse {
+    0%, 100% { opacity: 0.3; transform: translateY(0); }
+    50% { opacity: 1; transform: translateY(-2px); }
+}
+
+.chat-form {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+}
+
+.chat-form input {
+    flex: 1 1 240px;
+    min-width: 0;
+    padding: 14px 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.12);
+    color: inherit;
+}
+
+.chat-form input:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.chat-form button {
+    min-width: 120px;
+    padding: 14px 18px;
+    border-radius: 999px;
+}
+
+.site-footer {
+    margin-top: 28px;
+    padding: 16px 20px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    text-align: center;
+    opacity: 0.9;
+    font-size: 0.93rem;
+}
+
+
 .forecast-day {
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    opacity: 0.95;
 }
 
 .forecast-icon {
@@ -724,9 +921,19 @@ button:hover {
 
 /* 📱 MOBILE */
 @media (max-width: 768px) {
+    .header-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .theme-toggle {
+        align-self: flex-end;
+    }
+
     .top-bar {
         flex-direction: column;
         align-items: stretch;
+        gap: 12px;
     }
 
     .top-bar button {
@@ -744,6 +951,11 @@ button:hover {
     .hourly-forecast {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .forecast h2,
+    .section-heading h2 {
+        font-size: 1rem;
+    }
 }
 
 @media (max-width: 600px) {
@@ -753,15 +965,50 @@ button:hover {
     }
 
     .container {
-        padding: 18px;
+        padding: 16px;
+    }
+
+    .header-row h1 {
+        font-size: 1.35rem;
+    }
+
+    .status-message {
+        font-size: 0.95rem;
+        margin-bottom: 12px;
+    }
+
+    .top-bar {
+        gap: 10px;
+    }
+
+    button {
+        width: 100%;
+        padding: 14px 16px;
+    }
+
+    #weatherIcon {
+        width: 100px;
     }
 
     #temperature {
-        font-size: clamp(2.8rem, 12vw, 3.6rem);
+        font-size: clamp(2.4rem, 10vw, 3.2rem);
+    }
+
+    .sunset-visual {
+        max-width: 100%;
     }
 
     .details {
         grid-template-columns: 1fr;
+    }
+
+    .box {
+        padding: 14px;
+    }
+
+    .insights-grid,
+    .forecast {
+        margin-top: 20px;
     }
 
     .forecast {
@@ -769,10 +1016,46 @@ button:hover {
     }
 
     .forecast-card {
-        padding: 12px 8px;
+        padding: 12px 10px;
     }
 }
 
+@media (max-width: 480px) {
+    .container {
+        padding: 14px;
+    }
+
+    .header-row,
+    .section-heading {
+        gap: 8px;
+    }
+
+    .top-bar {
+        gap: 8px;
+    }
+
+    .search-input-shell,
+    .top-bar button {
+        width: 100%;
+    }
+
+    .hourly-forecast {
+        grid-template-columns: 1fr;
+    }
+
+    .assistant-tips {
+        gap: 6px;
+    }
+
+    .forecast h2,
+    .section-heading h2 {
+        font-size: 0.95rem;
+    }
+
+    .forecast-card {
+        padding: 10px 8px;
+    }
+}
 
 
 .search-wrapper {

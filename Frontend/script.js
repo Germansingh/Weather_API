@@ -15,20 +15,31 @@ const hourlyForecastEl = document.getElementById("hourlyForecast");
 const assistantMessageEl = document.getElementById("assistantMessage");
 const assistantTipsEl = document.getElementById("assistantTips");
 const travelRecommendationEl = document.getElementById("travelRecommendation");
+const chatForm = document.getElementById("chatForm");
+const chatInput = document.getElementById("chatInput");
+const chatHistory = document.getElementById("chatHistory");
 let isCurrentLocationMode = false;
+let latestWeatherData = null;
 let suggestionDebounceTimer = null;
 let activeSuggestionIndex = -1;
+let suggestionAbortController = null;
+let weatherAbortController = null;
 const suggestionCache = new Map();
 
 window.addEventListener("DOMContentLoaded", () => {
     initTheme();
     renderRecentSearches();
+    initAIChat();
     themeToggle.addEventListener("click", toggleTheme);
 
     searchBtn.addEventListener("click", () => {
         hideSuggestions();
         getWeather(cityInput.value.trim());
     });
+
+    if (chatForm) {
+        chatForm.addEventListener("submit", handleChatSubmit);
+    }
 
     cityInput.addEventListener("input", handleCityInput);
     cityInput.addEventListener("focus", () => {
@@ -141,6 +152,11 @@ async function requestCitySuggestions(query) {
         return;
     }
 
+    if (suggestionAbortController) {
+        suggestionAbortController.abort();
+    }
+    suggestionAbortController = new AbortController();
+
     if (citySuggestions) {
         citySuggestions.innerHTML = '<div class="suggestions-status"><span class="suggestions-spinner"></span>Loading cities...</div>';
         citySuggestions.classList.add("active");
@@ -151,7 +167,7 @@ async function requestCitySuggestions(query) {
         const suggestionsUrl = new URL(getApiUrl("/suggestions"));
         suggestionsUrl.searchParams.set("query", trimmed);
 
-        const response = await fetch(suggestionsUrl.toString());
+        const response = await fetch(suggestionsUrl.toString(), { signal: suggestionAbortController.signal });
         const data = await response.json();
 
         if (!response.ok) {
@@ -286,16 +302,25 @@ async function getApproximateLocationWeather() {
 }
 
 async function getWeather(city) {
-    if (!city) return;
+    const trimmedCity = city?.trim();
+    if (!trimmedCity) {
+        showStatus("Enter a city name to search.", true);
+        return;
+    }
 
     isCurrentLocationMode = false;
     showLoader(true);
 
+    if (weatherAbortController) {
+        weatherAbortController.abort();
+    }
+    weatherAbortController = new AbortController();
+
     try {
         const weatherUrl = new URL(getApiUrl("/weather"));
-        weatherUrl.searchParams.set("city", city);
+        weatherUrl.searchParams.set("city", trimmedCity);
 
-        const response = await fetch(weatherUrl.toString());
+        const response = await fetch(weatherUrl.toString(), { signal: weatherAbortController.signal });
         const data = await response.json();
 
         if (!response.ok) {
@@ -303,8 +328,11 @@ async function getWeather(city) {
         }
 
         updateWeatherUI(data);
-        addRecentCity(city);
+        addRecentCity(trimmedCity);
     } catch (err) {
+        if (err.name === "AbortError") {
+            return;
+        }
         console.error("Error:", err);
         showStatus(err.message, true);
     } finally {
@@ -366,6 +394,7 @@ async function getWeatherByCoords(lat, lon) {
 }
 
 function updateWeatherUI(data) {
+    latestWeatherData = data;
     showStatus("");
 
     if (locationBadge) {
@@ -620,6 +649,283 @@ function renderTravelRecommendation(data) {
             <span>Current temperature: ${temp}°C • ${data.description || "Clear"}</span>
         </div>
     `;
+}
+
+function initAIChat() {
+    if (!chatHistory) return;
+
+    chatHistory.innerHTML = "";
+    addChatMessage("Hi, I'm SkyWise AI — your intelligent weather and travel assistant. Ask me anything about the weather, packing, or safe plans.", "assistant");
+
+    const examples = [
+        "Is tomorrow good for a picnic in Manali?",
+        "Should I visit Goa this weekend?",
+        "Will it rain in Ludhiana tomorrow?",
+        "Is this weather suitable for cricket?",
+        "Can I go cycling tomorrow morning?",
+        "What clothes should I wear today?",
+        "Should I carry an umbrella?",
+        "Is it safe to travel with kids?",
+        "Which day is best for a road trip this week?"
+    ];
+
+    const examplesContainer = document.querySelector(".chat-examples");
+    if (examplesContainer) {
+        examplesContainer.innerHTML = examples
+            .map((question) => `<button type="button" class="example-chip">${escapeHTML(question)}</button>`)
+            .join("");
+
+        examplesContainer.querySelectorAll(".example-chip").forEach((button) => {
+            button.addEventListener("click", () => {
+                if (!chatInput) return;
+                chatInput.value = button.textContent || "";
+                chatInput.focus();
+            });
+        });
+    }
+}
+
+function handleChatSubmit(event) {
+    event.preventDefault();
+    if (!chatInput || !chatHistory) return;
+
+    const question = chatInput.value.trim();
+    if (!question) return;
+
+    addChatMessage(question, "user");
+    chatInput.value = "";
+    const typingBubble = simulateTyping();
+
+    window.setTimeout(() => {
+        if (typingBubble) {
+            typingBubble.remove();
+        }
+
+        const response = generateAIResponse(question, latestWeatherData);
+        addChatMessage(response.html || response.text || "I am still learning. Please try another question.", "assistant", { html: true });
+    }, 900 + Math.random() * 700);
+}
+
+function addChatMessage(content, role, options = {}) {
+    if (!chatHistory) return;
+    const messageEl = document.createElement("div");
+    messageEl.className = `chat-message ${role}`;
+
+    const avatarEl = document.createElement("div");
+    avatarEl.className = "chat-avatar";
+    avatarEl.textContent = role === "user" ? "🧑" : "🤖";
+
+    const bubbleEl = document.createElement("div");
+    bubbleEl.className = `chat-bubble ${role}`;
+    if (options.html) {
+        bubbleEl.innerHTML = content;
+    } else {
+        bubbleEl.textContent = content;
+    }
+
+    const metaEl = document.createElement("div");
+    metaEl.className = "chat-meta";
+    metaEl.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+    if (role === "assistant") {
+        messageEl.append(avatarEl, bubbleEl, metaEl);
+    } else {
+        messageEl.append(metaEl, bubbleEl, avatarEl);
+    }
+
+    chatHistory.appendChild(messageEl);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+
+function simulateTyping() {
+    if (!chatHistory) return null;
+
+    const typingEl = document.createElement("div");
+    typingEl.className = "chat-message assistant typing";
+
+    const avatarEl = document.createElement("div");
+    avatarEl.className = "chat-avatar";
+    avatarEl.textContent = "🤖";
+
+    const bubbleEl = document.createElement("div");
+    bubbleEl.className = "chat-bubble assistant";
+    bubbleEl.innerHTML = `<div class="typing-indicator"><span></span><span></span><span></span></div>`;
+
+    typingEl.append(avatarEl, bubbleEl);
+    chatHistory.appendChild(typingEl);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+
+    return typingEl;
+}
+
+function generateAIResponse(question, weatherData) {
+    const normalized = question.trim().toLowerCase();
+    const cityLabel = weatherData.city ? `${weatherData.city}` : "your selected location";
+
+    if (!weatherData) {
+        return {
+            html: "I am ready to help as soon as weather data is loaded. Search for a city or allow location access so I can give you personalized advice."
+        };
+    }
+
+    const travelIntent = ["visit", "trip", "weekend", "road trip", "travel", "goa", "manali", "ludhiana", "holiday", "vacation"].some((keyword) => normalized.includes(keyword));
+    const weatherIntent = ["rain", "umbrella", "picnic", "cycling", "cricket", "clothes", "cold", "hot", "temperature", "humidity", "wind", "sunny", "snow"].some((keyword) => normalized.includes(keyword));
+
+    if (travelIntent || /best day|should i go|safe to travel|comfort|pack|recommendation/.test(normalized)) {
+        return buildTravelPlannerResponse(question, weatherData, cityLabel);
+    }
+
+    if (weatherIntent) {
+        return buildWeatherRecommendationResponse(question, weatherData, cityLabel);
+    }
+
+    return buildWeatherRecommendationResponse(question, weatherData, cityLabel);
+}
+
+function buildWeatherRecommendationResponse(question, weatherData, cityLabel) {
+    const temperature = Number(weatherData.temperature ?? 0);
+    const humidity = Number(weatherData.humidity ?? 0);
+    const windSpeed = Number(weatherData.wind ?? 0);
+    const condition = (weatherData.description || "").toLowerCase();
+
+    const isRain = /rain|drizzle|thunder|shower/.test(condition);
+    const isSnow = /snow/.test(condition);
+    const isHot = temperature >= 28;
+    const isCold = temperature <= 12;
+
+    const recommendation = isRain
+        ? `Based on current conditions in ${escapeHTML(cityLabel)}, carry an umbrella and choose indoor-friendly plans.`
+        : isSnow
+        ? `In ${escapeHTML(cityLabel)}, dress warmly and avoid long outdoor trips.`
+        : isHot
+        ? `In ${escapeHTML(cityLabel)}, stay hydrated and favor morning or evening activities.`
+        : `Weather in ${escapeHTML(cityLabel)} looks comfortable for outdoor plans.`;
+
+    const confidence = Math.min(99, Math.max(65, 95 - (isRain ? 0 : isCold ? 5 : 3) - (windSpeed > 15 ? 5 : 0)));
+
+    const reasons = [];
+    reasons.push(`Current temperature is ${temperature}°C`);
+    reasons.push(`Weather condition is ${escapeHTML(weatherData.description || "clear")}`);
+    reasons.push(`Humidity is ${humidity}%`);
+    reasons.push(`Wind speed is ${windSpeed} m/s`);
+
+    if (isRain) {
+        reasons.push("Rain risk is elevated, so plan for wet weather.");
+    } else if (isSnow) {
+        reasons.push("Snow or cold conditions are present, so stay layered.");
+    } else if (isHot) {
+        reasons.push("Warm conditions mean you should protect against sun and heat.");
+    } else if (isCold) {
+        reasons.push("Cool conditions mean you should bring warm layers.");
+    }
+
+    const packing = ["Water bottle"];
+    if (isRain) packing.push("Umbrella", "Light rain jacket");
+    if (isHot) packing.push("Sunscreen", "Hat", "Sunglasses");
+    if (isCold) packing.push("Warm layers", "Gloves");
+    if (!isRain && !isSnow && !isHot) packing.push("Light jacket");
+
+    const bestTime = determineBestTime(weatherData, question);
+    const title = question.toLowerCase().includes("picnic")
+        ? "Excellent for a Picnic"
+        : recommendation;
+
+    return {
+        html: `
+            <p><strong>✅ ${escapeHTML(title)}</strong></p>
+            <p><strong>Confidence:</strong> ${confidence}%</p>
+            <p><strong>Why?</strong></p>
+            <ul>${reasons.map((reason) => `<li>${escapeHTML(reason)}</li>`).join("")}</ul>
+            <p><strong>Things to Carry:</strong></p>
+            <ul>${packing.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}</ul>
+            <p><strong>Best Time:</strong> ${escapeHTML(bestTime)}</p>
+        `
+    };
+}
+
+function buildTravelPlannerResponse(question, weatherData, cityLabel) {
+    const temperature = Number(weatherData.temperature ?? 0);
+    const humidity = Number(weatherData.humidity ?? 0);
+    const windSpeed = Number(weatherData.wind ?? 0);
+    const condition = (weatherData.description || "").toLowerCase();
+    const forecast = weatherData.forecast || [];
+
+    const travelScore = Math.round(
+        80 +
+        (condition.includes("rain") ? -30 : 10) +
+        (condition.includes("snow") ? -20 : 0) +
+        (temperature >= 18 && temperature <= 26 ? 8 : temperature < 10 ? -5 : temperature > 30 ? -8 : 0) +
+        (windSpeed <= 12 ? 5 : -5)
+    );
+
+    const rainRisk = condition.includes("rain") || condition.includes("thunder")
+        ? "High"
+        : condition.includes("cloud")
+        ? "Moderate"
+        : "Low";
+
+    const crowdComfort = temperature >= 18 && temperature <= 26 && humidity <= 75 ? "High" : "Moderate";
+
+    const pack = ["Water bottle", "Mobile charger"];
+    if (condition.includes("rain")) pack.push("Umbrella", "Waterproof jacket");
+    if (temperature > 28) pack.push("Sunscreen", "Hat");
+    if (temperature < 12) pack.push("Warm layers");
+
+    const bestDay = selectBestTravelDay(forecast);
+    const activity = condition.includes("rain")
+        ? "Enjoy indoor attractions, cafes, or cultural stops."
+        : condition.includes("snow")
+        ? "Plan scenic viewpoints and cozy local dining."
+        : "Choose outdoor walks, sightseeing, or light adventure plans.";
+
+    const alert = condition.includes("thunder")
+        ? "⚠️ Thunderstorm alert. Avoid exposed outdoor activities."
+        : condition.includes("snow")
+        ? "❄️ Snow conditions may slow travel."
+        : condition.includes("rain")
+        ? "🌧️ Keep a rain cover handy."
+        : "✅ No immediate weather alerts.";
+
+    return {
+        html: `
+            <p><strong>Weather Summary:</strong> ${escapeHTML(weatherData.description || "Clear skies")} with ${temperature}°C, ${humidity}% humidity, and wind at ${windSpeed} m/s.</p>
+            <p><strong>Travel Score:</strong> ${Math.max(30, Math.min(100, travelScore))}%</p>
+            <p><strong>Crowd Comfort:</strong> ${escapeHTML(crowdComfort)}</p>
+            <p><strong>Rain Risk:</strong> ${escapeHTML(rainRisk)}</p>
+            <p><strong>Packing Suggestions:</strong></p>
+            <ul>${pack.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}</ul>
+            <p><strong>Best Day to Visit:</strong> ${escapeHTML(bestDay)}</p>
+            <p><strong>Recommended Outdoor Activities:</strong></p>
+            <ul><li>${escapeHTML(activity)}</li></ul>
+            <p><strong>Weather Alerts:</strong> ${escapeHTML(alert)}</p>
+        `
+    };
+}
+
+function determineBestTime(weatherData, question) {
+    const sunrise = formatTime(weatherData.sunrise);
+    const sunset = formatTime(weatherData.sunset);
+    if (question.toLowerCase().includes("morning") || question.toLowerCase().includes("afternoon")) {
+        return question.toLowerCase().includes("morning") ? `${sunrise} – 12:00 PM` : `12:00 PM – ${sunset}`;
+    }
+    return `${sunrise} – ${sunset}`;
+}
+
+function selectBestTravelDay(forecast) {
+    if (!Array.isArray(forecast) || !forecast.length) {
+        return "Today";
+    }
+
+    const prioritized = forecast.map((item) => {
+        const score =
+            (item.description.toLowerCase().includes("rain") ? -20 : 10) +
+            (item.description.toLowerCase().includes("snow") ? -10 : 5);
+        return { score, date: item.date };
+    });
+
+    prioritized.sort((a, b) => b.score - a.score);
+    const best = prioritized[0];
+    return best ? new Date(best.date).toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" }) : "Today";
 }
 
 function getForecastEmoji(description) {

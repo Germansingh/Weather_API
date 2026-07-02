@@ -3,8 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather Dashboard</title>
-
+    <title>SkyWise AI</title>
+    <meta name="description" content="SkyWise AI - Your Intelligent Weather & Travel Assistant">
+    <meta property="og:title" content="SkyWise AI">
+    <meta property="og:description" content="SkyWise AI - Your Intelligent Weather & Travel Assistant">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="SkyWise AI">
+    <meta name="twitter:description" content="SkyWise AI - Your Intelligent Weather & Travel Assistant">
+    <meta name="theme-color" content="#1e3a8a">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="style.css">
 
     <!-- Google Font -->
@@ -28,7 +36,10 @@
 <div class="container">
 
     <div class="header-row">
-        <h1>🌤 Weather Dashboard</h1>
+        <div>
+            <h1>☁️ SkyWise AI</h1>
+            <p class="tagline">Your Intelligent Weather & Travel Assistant</p>
+        </div>
         <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle theme">🌙</button>
     </div>
 
@@ -205,6 +216,24 @@
 
     </div>
 
+    <section class="panel chat-panel" aria-label="SkyWise AI chat assistant">
+        <div class="chat-header">
+            <div>
+                <h2>💬 SkyWise AI Chat</h2>
+                <span>Ask about weather, travel, packing, and safe plans.</span>
+            </div>
+            <div class="chat-examples" aria-label="Sample questions"></div>
+        </div>
+        <div id="chatHistory" class="chat-history" aria-live="polite"></div>
+        <form id="chatForm" class="chat-form" aria-label="Ask SkyWise AI">
+            <input id="chatInput" type="text" placeholder="Ask me: Should I carry an umbrella?" autocomplete="off" spellcheck="false" aria-label="Chat question">
+            <button id="chatSendBtn" type="submit">Ask</button>
+        </form>
+    </section>
+
+    <footer class="site-footer">
+        <p>SkyWise AI — Your intelligent weather, travel and packing assistant.</p>
+    </footer>
 </div>
 
 <script src="/config.js"></script>

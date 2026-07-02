@@ -1,6 +1,7 @@
 {
-  "name": "weather_api",
+  "name": "skywise-ai",
   "version": "1.0.0",
+  "description": "SkyWise AI - Intelligent weather and travel assistant",
   "type": "module",
   "main": "Backend/server.js",
   "scripts": {
