@@ -1,3 +1,5 @@
+import { generateAssistantReply } from "./assistantLogic.js";
+
 const cityInput = document.getElementById("city");
 const searchBtn = document.getElementById("searchBtn");
 const locationBtn = document.getElementById("locationBtn");
@@ -270,14 +272,14 @@ function requestCurrentLocationWeather() {
         (position) => {
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
-            getWeatherByCoords(lat, lon);
+            void getWeatherByCoords(lat, lon);
         },
         () => {
             isCurrentLocationMode = false;
             showStatus("Location access was blocked. Trying an approximate location instead.", true);
-            getApproximateLocationWeather();
+            void getApproximateLocationWeather();
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 600000 }
     );
 }
 
@@ -292,7 +294,7 @@ async function getApproximateLocationWeather() {
             throw new Error("Unable to detect your location");
         }
 
-        getWeatherByCoords(data.latitude, data.longitude);
+        await getWeatherByCoords(data.latitude, data.longitude);
     } catch (err) {
         console.error("Approximate location error:", err);
         showStatus("Unable to detect your location right now. Please search for a city manually.", true);
@@ -341,50 +343,43 @@ async function getWeather(city) {
 }
 
 async function getWeatherByCoords(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        showStatus("Unable to resolve a valid location. Please search for a city manually.", true);
+        return;
+    }
+
     showLoader(true);
 
+    if (weatherAbortController) {
+        weatherAbortController.abort();
+    }
+    weatherAbortController = new AbortController();
+
     try {
-        const [forecastResponse, reverseResponse] = await Promise.all([
-            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl,cloud_cover,is_day&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=5`),
-            fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&language=en&format=json`)
-        ]);
+        const weatherUrl = new URL(getApiUrl("/weather/location"));
+        weatherUrl.searchParams.set("lat", String(lat));
+        weatherUrl.searchParams.set("lon", String(lon));
 
-        const forecastData = await forecastResponse.json();
-        const reverseData = await reverseResponse.json();
+        const response = await fetch(weatherUrl.toString(), { signal: weatherAbortController.signal });
+        const data = await response.json();
 
-        const current = forecastData.current;
-        const daily = forecastData.daily;
-        const locationResult = reverseData.results?.[0];
-        const placeName = locationResult?.name || locationResult?.admin1 || "Your location";
-        const countryName = locationResult?.country || "";
+        if (!response.ok) {
+            throw new Error(data.error || "Unable to fetch your location weather");
+        }
 
         isCurrentLocationMode = true;
+        updateWeatherUI(data);
 
-        updateWeatherUI({
-            city: placeName,
-            country: countryName,
-            temperature: Math.round(current.temperature_2m),
-            feels_like: Math.round(current.apparent_temperature),
-            humidity: current.relative_humidity_2m,
-            weather: getWeatherDescription(current.weather_code),
-            description: getWeatherDescription(current.weather_code),
-            icon: getWeatherIcon(current.weather_code, current.is_day),
-            wind: current.wind_speed_10m,
-            windDirection: current.wind_direction_10m,
-            pressure: current.pressure_msl,
-            clouds: current.cloud_cover,
-            sunrise: daily.sunrise?.[0],
-            sunset: daily.sunset?.[0],
-            minTemp: Math.round(daily.temperature_2m_min?.[0]),
-            maxTemp: Math.round(daily.temperature_2m_max?.[0]),
-            forecast: daily.time.slice(0, 5).map((date, index) => ({
-                date,
-                minTemp: Math.round(daily.temperature_2m_min[index]),
-                maxTemp: Math.round(daily.temperature_2m_max[index]),
-                description: getWeatherDescription(daily.weather_code[index])
-            }))
-        });
+        if (cityInput) {
+            cityInput.value = data.city || "";
+        }
+
+        showStatus(`Showing live weather for ${data.city || "your location"}.`);
     } catch (err) {
+        if (err.name === "AbortError") {
+            return;
+        }
+
         console.error("Error:", err);
         isCurrentLocationMode = false;
         showStatus("Unable to fetch your location weather. Please search for a city manually.", true);
@@ -759,146 +754,9 @@ function simulateTyping() {
 }
 
 function generateAIResponse(question, weatherData) {
-    const normalized = question.trim().toLowerCase();
-    const cityLabel = weatherData.city ? `${weatherData.city}` : "your selected location";
-
-    if (!weatherData) {
-        return {
-            html: "I am ready to help as soon as weather data is loaded. Search for a city or allow location access so I can give you personalized advice."
-        };
-    }
-
-    const travelIntent = ["visit", "trip", "weekend", "road trip", "travel", "goa", "manali", "ludhiana", "holiday", "vacation"].some((keyword) => normalized.includes(keyword));
-    const weatherIntent = ["rain", "umbrella", "picnic", "cycling", "cricket", "clothes", "cold", "hot", "temperature", "humidity", "wind", "sunny", "snow"].some((keyword) => normalized.includes(keyword));
-
-    if (travelIntent || /best day|should i go|safe to travel|comfort|pack|recommendation/.test(normalized)) {
-        return buildTravelPlannerResponse(question, weatherData, cityLabel);
-    }
-
-    if (weatherIntent) {
-        return buildWeatherRecommendationResponse(question, weatherData, cityLabel);
-    }
-
-    return buildWeatherRecommendationResponse(question, weatherData, cityLabel);
-}
-
-function buildWeatherRecommendationResponse(question, weatherData, cityLabel) {
-    const temperature = Number(weatherData.temperature ?? 0);
-    const humidity = Number(weatherData.humidity ?? 0);
-    const windSpeed = Number(weatherData.wind ?? 0);
-    const condition = (weatherData.description || "").toLowerCase();
-
-    const isRain = /rain|drizzle|thunder|shower/.test(condition);
-    const isSnow = /snow/.test(condition);
-    const isHot = temperature >= 28;
-    const isCold = temperature <= 12;
-
-    const recommendation = isRain
-        ? `Based on current conditions in ${escapeHTML(cityLabel)}, carry an umbrella and choose indoor-friendly plans.`
-        : isSnow
-        ? `In ${escapeHTML(cityLabel)}, dress warmly and avoid long outdoor trips.`
-        : isHot
-        ? `In ${escapeHTML(cityLabel)}, stay hydrated and favor morning or evening activities.`
-        : `Weather in ${escapeHTML(cityLabel)} looks comfortable for outdoor plans.`;
-
-    const confidence = Math.min(99, Math.max(65, 95 - (isRain ? 0 : isCold ? 5 : 3) - (windSpeed > 15 ? 5 : 0)));
-
-    const reasons = [];
-    reasons.push(`Current temperature is ${temperature}°C`);
-    reasons.push(`Weather condition is ${escapeHTML(weatherData.description || "clear")}`);
-    reasons.push(`Humidity is ${humidity}%`);
-    reasons.push(`Wind speed is ${windSpeed} m/s`);
-
-    if (isRain) {
-        reasons.push("Rain risk is elevated, so plan for wet weather.");
-    } else if (isSnow) {
-        reasons.push("Snow or cold conditions are present, so stay layered.");
-    } else if (isHot) {
-        reasons.push("Warm conditions mean you should protect against sun and heat.");
-    } else if (isCold) {
-        reasons.push("Cool conditions mean you should bring warm layers.");
-    }
-
-    const packing = ["Water bottle"];
-    if (isRain) packing.push("Umbrella", "Light rain jacket");
-    if (isHot) packing.push("Sunscreen", "Hat", "Sunglasses");
-    if (isCold) packing.push("Warm layers", "Gloves");
-    if (!isRain && !isSnow && !isHot) packing.push("Light jacket");
-
-    const bestTime = determineBestTime(weatherData, question);
-    const title = question.toLowerCase().includes("picnic")
-        ? "Excellent for a Picnic"
-        : recommendation;
-
+    const reply = generateAssistantReply(question, weatherData);
     return {
-        html: `
-            <p><strong>✅ ${escapeHTML(title)}</strong></p>
-            <p><strong>Confidence:</strong> ${confidence}%</p>
-            <p><strong>Why?</strong></p>
-            <ul>${reasons.map((reason) => `<li>${escapeHTML(reason)}</li>`).join("")}</ul>
-            <p><strong>Things to Carry:</strong></p>
-            <ul>${packing.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}</ul>
-            <p><strong>Best Time:</strong> ${escapeHTML(bestTime)}</p>
-        `
-    };
-}
-
-function buildTravelPlannerResponse(question, weatherData, cityLabel) {
-    const temperature = Number(weatherData.temperature ?? 0);
-    const humidity = Number(weatherData.humidity ?? 0);
-    const windSpeed = Number(weatherData.wind ?? 0);
-    const condition = (weatherData.description || "").toLowerCase();
-    const forecast = weatherData.forecast || [];
-
-    const travelScore = Math.round(
-        80 +
-        (condition.includes("rain") ? -30 : 10) +
-        (condition.includes("snow") ? -20 : 0) +
-        (temperature >= 18 && temperature <= 26 ? 8 : temperature < 10 ? -5 : temperature > 30 ? -8 : 0) +
-        (windSpeed <= 12 ? 5 : -5)
-    );
-
-    const rainRisk = condition.includes("rain") || condition.includes("thunder")
-        ? "High"
-        : condition.includes("cloud")
-        ? "Moderate"
-        : "Low";
-
-    const crowdComfort = temperature >= 18 && temperature <= 26 && humidity <= 75 ? "High" : "Moderate";
-
-    const pack = ["Water bottle", "Mobile charger"];
-    if (condition.includes("rain")) pack.push("Umbrella", "Waterproof jacket");
-    if (temperature > 28) pack.push("Sunscreen", "Hat");
-    if (temperature < 12) pack.push("Warm layers");
-
-    const bestDay = selectBestTravelDay(forecast);
-    const activity = condition.includes("rain")
-        ? "Enjoy indoor attractions, cafes, or cultural stops."
-        : condition.includes("snow")
-        ? "Plan scenic viewpoints and cozy local dining."
-        : "Choose outdoor walks, sightseeing, or light adventure plans.";
-
-    const alert = condition.includes("thunder")
-        ? "⚠️ Thunderstorm alert. Avoid exposed outdoor activities."
-        : condition.includes("snow")
-        ? "❄️ Snow conditions may slow travel."
-        : condition.includes("rain")
-        ? "🌧️ Keep a rain cover handy."
-        : "✅ No immediate weather alerts.";
-
-    return {
-        html: `
-            <p><strong>Weather Summary:</strong> ${escapeHTML(weatherData.description || "Clear skies")} with ${temperature}°C, ${humidity}% humidity, and wind at ${windSpeed} m/s.</p>
-            <p><strong>Travel Score:</strong> ${Math.max(30, Math.min(100, travelScore))}%</p>
-            <p><strong>Crowd Comfort:</strong> ${escapeHTML(crowdComfort)}</p>
-            <p><strong>Rain Risk:</strong> ${escapeHTML(rainRisk)}</p>
-            <p><strong>Packing Suggestions:</strong></p>
-            <ul>${pack.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}</ul>
-            <p><strong>Best Day to Visit:</strong> ${escapeHTML(bestDay)}</p>
-            <p><strong>Recommended Outdoor Activities:</strong></p>
-            <ul><li>${escapeHTML(activity)}</li></ul>
-            <p><strong>Weather Alerts:</strong> ${escapeHTML(alert)}</p>
-        `
+        html: `<p>${escapeHTML(reply)}</p>`
     };
 }
 

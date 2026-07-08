@@ -15,7 +15,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 5000;
-
 const frontendPath = path.join(__dirname, "..", "Frontend");
 
 app.get("/config.js", (req, res) => {
@@ -115,48 +114,7 @@ app.get("/weather", async (req, res) => {
             }
         });
 
-        const currentWeather = forecastResponse.data.current_weather || {};
-        const current = forecastResponse.data.current || {};
-        const daily = forecastResponse.data.daily || {};
-        const hourly = forecastResponse.data.hourly || {};
-        const weatherCode = currentWeather.weathercode ?? current.weather_code;
-        const description = getWeatherDescription(weatherCode);
-
-        const hourlyForecast = (hourly.time || []).slice(0, 8).map((time, index) => ({
-            time,
-            temperature: Math.round(hourly.temperature_2m?.[index]),
-            description: getWeatherDescription(hourly.weather_code?.[index]),
-            precipitationProbability: hourly.precipitation_probability?.[index] ?? 0,
-            windSpeed: hourly.wind_speed_10m?.[index] ?? 0
-        }));
-
-        const data = {
-            city: location.name,
-            country: location.country,
-            temperature: Math.round(currentWeather.temperature ?? current.temperature_2m),
-            feels_like: Math.round(current.apparent_temperature ?? currentWeather.temperature),
-            humidity: current.relative_humidity_2m,
-            weather: description,
-            description,
-            icon: getWeatherIcon(weatherCode, currentWeather.is_day ?? current.is_day),
-            wind: current.wind_speed_10m ?? currentWeather.windspeed,
-            windDirection: current.wind_direction_10m ?? currentWeather.winddirection,
-            pressure: current.pressure_msl,
-            clouds: current.cloud_cover,
-            sunrise: daily.sunrise?.[0],
-            sunset: daily.sunset?.[0],
-            minTemp: Math.round(daily.temperature_2m_min?.[0]),
-            maxTemp: Math.round(daily.temperature_2m_max?.[0]),
-            forecast: (daily.time || []).slice(0, 5).map((date, index) => ({
-                date,
-                minTemp: Math.round(daily.temperature_2m_min[index]),
-                maxTemp: Math.round(daily.temperature_2m_max[index]),
-                description: getWeatherDescription(daily.weather_code[index])
-            })),
-            hourlyForecast
-        };
-
-        res.json(data);
+        res.json(buildWeatherPayload(location, forecastResponse.data));
     } catch (error) {
         res.status(500).json({
             error: "Failed to fetch weather data",
@@ -164,6 +122,118 @@ app.get("/weather", async (req, res) => {
         });
     }
 });
+
+app.get("/weather/location", async (req, res) => {
+    try {
+        const latitude = Number(req.query.lat);
+        const longitude = Number(req.query.lon);
+
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+            return res.status(400).json({ error: "Latitude and longitude are required" });
+        }
+
+        const [forecastResponse, reverseResponse] = await Promise.allSettled([
+            axios.get("https://api.open-meteo.com/v1/forecast", {
+                params: {
+                    latitude,
+                    longitude,
+                    current: [
+                        "temperature_2m",
+                        "relative_humidity_2m",
+                        "apparent_temperature",
+                        "weather_code",
+                        "wind_speed_10m",
+                        "wind_direction_10m",
+                        "pressure_msl",
+                        "cloud_cover",
+                        "is_day"
+                    ],
+                    daily: ["weather_code", "temperature_2m_max", "temperature_2m_min", "sunrise", "sunset"],
+                    hourly: [
+                        "temperature_2m",
+                        "weather_code",
+                        "precipitation_probability",
+                        "wind_speed_10m"
+                    ],
+                    timezone: "auto",
+                    forecast_days: 5,
+                    current_weather: true
+                }
+            }),
+            axios.get("https://geocoding-api.open-meteo.com/v1/reverse", {
+                params: {
+                    latitude,
+                    longitude,
+                    language: "en",
+                    format: "json"
+                }
+            }).catch(() => null)
+        ]);
+
+        if (forecastResponse.status !== "fulfilled" || !forecastResponse.value?.data) {
+            throw new Error("Failed to fetch weather forecast");
+        }
+
+        const location = reverseResponse.status === "fulfilled" && reverseResponse.value?.data?.results?.[0]
+            ? reverseResponse.value.data.results[0]
+            : {
+                name: "Your location",
+                country: "",
+                latitude,
+                longitude
+            };
+
+        res.json(buildWeatherPayload(location, forecastResponse.value.data));
+    } catch (error) {
+        res.status(500).json({
+            error: "Failed to fetch live location weather",
+            details: error.message
+        });
+    }
+});
+
+function buildWeatherPayload(location, forecastData) {
+    const currentWeather = forecastData.current_weather || {};
+    const current = forecastData.current || {};
+    const daily = forecastData.daily || {};
+    const hourly = forecastData.hourly || {};
+    const weatherCode = currentWeather.weathercode ?? current.weather_code;
+    const description = getWeatherDescription(weatherCode);
+
+    const hourlyForecast = (hourly.time || []).slice(0, 8).map((time, index) => ({
+        time,
+        temperature: Math.round(hourly.temperature_2m?.[index]),
+        description: getWeatherDescription(hourly.weather_code?.[index]),
+        precipitationProbability: hourly.precipitation_probability?.[index] ?? 0,
+        windSpeed: hourly.wind_speed_10m?.[index] ?? 0
+    }));
+
+    return {
+        city: location.name || "Your location",
+        country: location.country || location.country_code || "",
+        temperature: Math.round(currentWeather.temperature ?? current.temperature_2m),
+        feels_like: Math.round(current.apparent_temperature ?? currentWeather.temperature),
+        humidity: current.relative_humidity_2m,
+        weather: description,
+        description,
+        icon: getWeatherIcon(weatherCode, currentWeather.is_day ?? current.is_day),
+        wind: current.wind_speed_10m ?? currentWeather.windspeed,
+        windDirection: current.wind_direction_10m ?? currentWeather.winddirection,
+        pressure: current.pressure_msl,
+        clouds: current.cloud_cover,
+        sunrise: daily.sunrise?.[0],
+        sunset: daily.sunset?.[0],
+        minTemp: Math.round(daily.temperature_2m_min?.[0]),
+        maxTemp: Math.round(daily.temperature_2m_max?.[0]),
+        forecast: (daily.time || []).slice(0, 5).map((date, index) => ({
+            date,
+            minTemp: Math.round(daily.temperature_2m_min[index]),
+            maxTemp: Math.round(daily.temperature_2m_max[index]),
+            description: getWeatherDescription(daily.weather_code[index])
+        })),
+        hourlyForecast
+    };
+}
 
 function getWeatherDescription(code) {
     const weatherMap = {
@@ -216,6 +286,14 @@ function getWeatherIcon(code, isDay) {
     return `https://openweathermap.org/img/wn/${icon}@2x.png`;
 }
 
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+const startServer = () => {
+    app.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+    });
+};
+
+if (process.env.NODE_ENV !== "test" && process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+    startServer();
+}
+
+export { app, startServer, buildWeatherPayload, getWeatherDescription, getWeatherIcon };
